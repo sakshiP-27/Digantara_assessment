@@ -1,0 +1,32 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# --- Virtual environments ---
+.venv/
+.pdfvenv/
+venv/
+env/
+
+# --- Generated pipeline artifacts (large; reproducible by rerunning the pipeline) ---
+Output/
+
+# --- Raw dataset (large FITS files; distributed separately via OneDrive) ---
+Dataset/
+
+# --- OS / editor junk ---
+.DS_Store
+.idea/
+.vscode/
+
+# --- Scratch / inspection helpers ---
+inspect_fits.py
+make_crops.py
+
+# --- Submission archive (over GitHub's 100 MB file limit) ---
+submission.zip
+
+# --- Windows junk ---
+desktop.ini
