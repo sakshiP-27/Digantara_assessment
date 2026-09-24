@@ -19,7 +19,7 @@ The median is subtracted, and anything below zero is set to zero. The sky then s
 - Width: 9 x 1024 = 9216, with 352 pixels left over. The next multiple is 10 x 1024 = 10240, so 672 columns are added on the right.
 - Height: 6 x 1024 = 6144, with 236 pixels left over. The next multiple is 7 x 1024 = 7168, so 788 rows are added on the bottom.
 
-The pad is zeros. That matches the background-subtracted floor, and it does not invent sources. The original pixels are never cropped, scaled, or overlapped. Each frame becomes a 10 x 7 grid of exact 1024 x 1024 tiles (70 tiles, 700 in total). `tiles_manifest.json` stores the original size and the top-left of every tile. Repatching copies each tile back to that position and cuts the canvas to 9568 x 6380, which removes only the pad.
+The pad is zeros. That matches the background-subtracted floor, and it does not invent sources. The original pixels are never cropped, scaled, or overlapped. Each frame becomes a 10 x 7 grid of exact 1024 x 1024 tiles (70 tiles, 700 in total). `tiles_manifest.json` stores the original size and the top-left of every tile. Repatching copies each tile back to that position and cuts the canvas to 9568 x 6380, which removes only the pad. Stitching the saved tiles and comparing them with the 16-bit arrays gives a maximum difference of 0 on every frame, so the pad-and-crop step does not change any original pixel.
 
 Assumption for this step: a source that crosses a tile edge is stored as two annotations, one in each tile. The padded strip is not part of the original image and is removed in the repatched frames.
 
@@ -27,13 +27,13 @@ Assumption for this step: a source that crosses a tile edge is stored as two ann
 
 Detection and classification happen on each tile separately, because the noise is not uniform across the frame.
 
-A pixel is kept if it is above that tile's median plus 8 sigma. Sigma comes from the MAD, using the same 1.4826 factor. The mask is then closed with a 3 x 3 kernel, so a line with a one-pixel gap stays one object. Components smaller than 5 pixels are dropped. Most of those are single hot pixels.
+The cut is not one number for the whole tile. Each tile is split into 128 x 128 blocks. Each block gets its own median and its own sigma (MAD times 1.4826). Those values are smoothed back to every pixel, and a pixel is kept if it is above that local median plus 8 sigma. The mask is then closed with a 3 x 3 kernel, so a line with a one-pixel gap stays one object. Components smaller than 5 pixels are dropped. Most of those are single hot pixels.
 
-Each remaining component is fit with an ellipse from the pixel second moments. Elongation is the long axis divided by the short axis. A component is a streak only when elongation is at least 3 and area is at least 10 pixels. A shorter or fatter object stays a blob. A normal star is roughly round (elongation near 1), so it stays a blob even if it is bright. Across all 10 frames this gave 142,183 blobs and 10,747 streaks.
+Each remaining component is fit with an ellipse from the pixel second moments. Elongation is the long axis divided by the short axis. A component is a streak only when elongation is at least 3 and area is at least 10 pixels. A shorter or fatter object stays a blob. A normal star is roughly round (elongation near 1), so it stays a blob even if it is bright. Across all 10 frames this gave 136,338 blobs and 9,679 streaks. Half of the objects have elongation at or below 2.0. The 90th percentile is 3.8.
 
 Those pixels are written into a class mask: 0 is background, 1 is a blob, 2 is a streak. The YOLO file does not store a box around the object. Each line is the outline of one region in that mask. The first number is the class (0 blob, 1 streak). The rest are the outline corners, with x and y divided by 1024 so they fall between 0 and 1. One line is one object.
 
-Assumption for this step: compact sources are stars and elongated ones are space objects. The same 8 sigma cut is used on every tile, including the two CAM_B frames. Those frames have noise around 43 counts, so many more pixels pass the cut. On the second CAM_B frame, 15 tiles each contain thousands of components. Where those pixels sit next to each other, the 3 x 3 closing joins the gaps and the tile looks like a solid green square in the overlay. The cut was left the same there, with no separate tuning.
+Assumption for this step: compact sources are stars and elongated ones are space objects. The same 8 sigma cut is used everywhere, including the two CAM_B frames. Those frames have noise around 43 counts, so many more pixels pass the cut, and some tiles still look filled in on the overlay. A before/after check on one crowded CAM tile (`..._r3_c6`) dropped the marked pixels only from 175,013 to 174,294. On a quiet tile the drop was from 77 to 58. The local cut helps where the sky changes inside a tile. It does not clear a tile whose sky is already flat and noisy. The cut was left the same there, with no separate tuning.
 
 ## (d) Faint or small blobs as stars
 
@@ -49,4 +49,4 @@ On the quieter frames a lot of faint stars still appear white in the preview and
 
 ## Where to look
 
-Full frames for checking are in `Output/repatched`. `*_repatched.png` is the stretched frame. `*_overlay.png` is the same frame with blobs in green and streaks in red. YOLO text files are in `Output/annotations/labels`, one file per tile. Class names are in `data.yaml`.
+Full frames for checking are in `Output/repatched`. `*_repatched.png` is the stretched frame. `*_overlay.png` is the same frame with blobs in green and streaks in red. YOLO text files are in `Output/annotations/labels`, one file per tile. Class names are in `data.yaml`. Before/after tiles are in `Output/evidence`. The counts, elongation summary, and the tiling check are in `Output/stats/report_stats.json`.

@@ -26,9 +26,13 @@ python -m Pipeline.tiling
 python -m Pipeline.detect
 python -m Pipeline.annotate
 python -m Pipeline.repatch
+python -m Pipeline.evidence
+python -m Pipeline.stats
 ```
 
-Shared settings (tile size, sigma factor, class ids) are in `Pipeline/config.py`.
+`evidence` writes a before/after pair for two sample tiles: one threshold for the whole tile, then the 128 x 128 local background used by `detect`. `stats` writes per-image counts, an elongation summary, and a check that stitching the tiles reproduces the preprocessed frame with no pixel difference.
+
+Shared settings (tile size, sigma factor, block size, class ids) are in `Pipeline/config.py`. The same packages are listed in `requirements.txt`.
 
 ## What you get
 
@@ -39,6 +43,8 @@ Shared settings (tile size, sigma factor, class ids) are in `Pipeline/config.py`
 | `Output/detections/` | Class masks and `detections.json` per image |
 | `Output/annotations/` | YOLO dataset: `images/`, `labels/`, `data.yaml` |
 | `Output/repatched/` | Full 9568x6380 frames for inspection |
+| `Output/evidence/` | Before/after detection images for two sample tiles |
+| `Output/stats/` | Counts, elongation summary, tiling check |
 
 ## How to read the results
 

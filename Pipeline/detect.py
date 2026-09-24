@@ -12,8 +12,8 @@ from Pipeline import config
 
 
 def tile_threshold(tile, k=config.DETECT_SIGMA_K):
-    """Compute a per-tile detection threshold at median + k*sigma using robust statistics."""
-    # Median is the local background level for this tile.
+    """Compute one threshold for a whole tile at median + k*sigma. Kept for before/after checks."""
+    # Median is the background level for this tile.
     med = float(np.median(tile))
     # MAD gives an outlier-resistant spread that ignores bright features.
     mad = float(np.median(np.abs(tile - med)))
@@ -21,6 +21,24 @@ def tile_threshold(tile, k=config.DETECT_SIGMA_K):
     sigma = 1.4826 * mad if mad > 0 else float(tile.std()) + 1.0
     # Features must exceed background by k noise sigmas to be detected.
     return med + k * sigma, med, sigma
+
+
+def local_background(tile, block=config.BG_BLOCK):
+    """Estimate background and noise on a grid of blocks, then expand back to every pixel."""
+    # A single median for the whole tile is too coarse when one side is brighter than the other.
+    height, width = tile.shape
+    rows, cols = height // block, width // block
+    # Reshape into non-overlapping blocks so each block gets its own median and MAD.
+    patches = tile[:rows * block, :cols * block].reshape(rows, block, cols, block).swapaxes(1, 2)
+    flat = patches.reshape(rows, cols, -1)
+    med = np.median(flat, axis=2)
+    mad = np.median(np.abs(flat - med[:, :, None]), axis=2)
+    # Same MAD-to-sigma conversion as the full-frame background estimate.
+    sigma = np.where(mad > 0, 1.4826 * mad, flat.std(axis=2) + 1.0).astype(np.float32)
+    # Smooth the block values across the tile so the threshold does not jump on a grid.
+    med_map = cv2.resize(med.astype(np.float32), (width, height), interpolation=cv2.INTER_LINEAR)
+    sigma_map = cv2.resize(sigma, (width, height), interpolation=cv2.INTER_LINEAR)
+    return med_map, sigma_map
 
 
 def build_binary_mask(tile, threshold, min_area=config.MIN_FEATURE_AREA):
@@ -59,8 +77,11 @@ def detect_tile(tile, k=config.DETECT_SIGMA_K, min_area=config.MIN_FEATURE_AREA)
     """Run threshold, cleanup, labeling and classification on a single tile."""
     # Work in float for stable threshold arithmetic.
     tile_f = tile.astype(np.float32)
-    # Derive the adaptive threshold and background stats for this tile.
-    threshold, med, sigma = tile_threshold(tile_f, k)
+    # Background and noise vary inside the tile, so the cut follows a local map.
+    med_map, sigma_map = local_background(tile_f)
+    threshold = med_map + k * sigma_map
+    med = float(np.median(med_map))
+    sigma = float(np.median(sigma_map))
     # Produce a cleaned binary feature mask.
     binary = build_binary_mask(tile_f, threshold, min_area)
     # Label connected components with 8-connectivity to keep diagonal streaks intact.
@@ -89,7 +110,11 @@ def detect_tile(tile, k=config.DETECT_SIGMA_K, min_area=config.MIN_FEATURE_AREA)
             "centroid": [round(float(region.centroid[1]), 1), round(float(region.centroid[0]), 1)],
         })
     # Summarize the background/threshold used so the report can cite real numbers.
-    meta = {"threshold": round(threshold, 2), "bg_median": round(med, 2), "sigma": round(sigma, 3)}
+    meta = {
+        "threshold": round(float(np.median(threshold)), 2),
+        "bg_median": round(med, 2),
+        "sigma": round(sigma, 3),
+    }
     return class_mask, features, meta
 
 

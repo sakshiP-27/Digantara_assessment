@@ -25,8 +25,9 @@ Dataset/
 inspect_fits.py
 make_crops.py
 
-# --- Submission archive (over GitHub's 100 MB file limit) ---
+# --- Submission archives (over GitHub's 100 MB file limit) ---
 submission.zip
+Digantara_submission.zip
 
 # --- Windows junk ---
 desktop.ini

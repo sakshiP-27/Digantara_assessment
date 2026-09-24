@@ -44,8 +44,17 @@ ANNOTATIONS_DIR = OUTPUT_DIR / "annotations"
 # Stage 5 writes full-frame images with the tile annotations painted back on.
 REPATCH_DIR = OUTPUT_DIR / "repatched"
 
-# Detection threshold expressed as this many robust sigmas above the tile background.
+# Before/after detection images for the two threshold methods.
+EVIDENCE_DIR = OUTPUT_DIR / "evidence"
+
+# Stage stats written for the written report.
+STATS_DIR = OUTPUT_DIR / "stats"
+
+# Detection threshold expressed as this many robust sigmas above the local background.
 DETECT_SIGMA_K = 8.0
+
+# Side length of the blocks used to estimate background inside each tile.
+BG_BLOCK = 128
 
 # Minimum connected-component area (pixels) to count as a real feature, not noise.
 MIN_FEATURE_AREA = 5
